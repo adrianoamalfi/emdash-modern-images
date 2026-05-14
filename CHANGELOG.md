@@ -1,3 +1,10 @@
+## [1.2.1](https://github.com/adrianoamalfi/emdash-plugin-modern-images/compare/v1.2.0...v1.2.1) (2026-05-14)
+
+
+### Bug Fixes
+
+* remove TS type annotations from init.mjs for Node compatibility ([4a5685a](https://github.com/adrianoamalfi/emdash-plugin-modern-images/commit/4a5685ac0826016bfc4147d9915ba49f9ac93f7b))
+
 # [1.2.0](https://github.com/adrianoamalfi/emdash-plugin-modern-images/compare/v1.1.0...v1.2.0) (2026-05-14)
 
 
