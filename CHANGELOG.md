@@ -1,3 +1,11 @@
+# [1.1.0](https://github.com/adrianoamalfi/emdash-plugin-modern-images/compare/v1.0.0...v1.1.0) (2026-05-14)
+
+
+### Features
+
+* ModernImage component with picture element and optional middleware ([3025e01](https://github.com/adrianoamalfi/emdash-plugin-modern-images/commit/3025e0125695460eb25f9d32e37692e978827131))
+* ModernImage component with picture element and optional middleware ([cb4ffdd](https://github.com/adrianoamalfi/emdash-plugin-modern-images/commit/cb4ffdd680e84b85855db9fd3c7a30ba4fc9db3b))
+
 # 1.0.0 (2026-05-14)
 
 
