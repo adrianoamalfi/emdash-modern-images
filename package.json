@@ -25,6 +25,9 @@
     "./astro/ModernImage": "./src/astro/ModernImage.astro",
     "./astro/middleware": "./src/astro/middleware.ts"
   },
+  "bin": {
+    "emdash-plugin-modern-images": "./src/bin/init.mjs"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

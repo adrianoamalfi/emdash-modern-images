@@ -5,27 +5,28 @@
 
 Converts uploaded images to WebP/AVIF with responsive `<picture>`, disk caching, and LCP preload support for [EmDash CMS](https://emdashcms.com).
 
-## Install
+## Quick start
 
 ```bash
 npm install emdash-plugin-modern-images
+npx emdash-plugin-modern-images
 ```
 
-`sharp` is bundled as a dependency — no extra install needed.
+The CLI creates `src/middleware.ts` and prints the config snippet.
 
-## Setup
+## Manual setup
 
 ### 1. Register the plugin
 
+Add to `astro.config.mjs`:
+
 ```ts
-// astro.config.mjs
 import { modernImagesPlugin } from "emdash-plugin-modern-images";
 
 export default defineConfig({
   integrations: [
     emdash({
       plugins: [modernImagesPlugin()],
-      // database and storage remain unchanged
     }),
   ],
 });
@@ -35,23 +36,18 @@ Once registered, every uploaded image is automatically converted to WebP and AVI
 
 ### 2. Use `<ModernImage>` in your templates
 
-Replace EmDash's `<Image>` with `<ModernImage>` for the images you want to optimize:
-
 ```astro
 ---
 import ModernImage from "emdash-plugin-modern-images/astro/ModernImage";
 ---
 
-<!-- Basic usage -->
 <ModernImage image={post.data.featured_image} />
 
-<!-- With responsive sizes and LCP preload -->
+<!-- With custom sizes and LCP preload -->
 <ModernImage image={post.data.featured_image} sizes="(min-width: 768px) 50vw, 100vw" preload />
 ```
 
-The component renders a `<picture>` element with AVIF and WebP sources. The browser picks the best supported format. The original image is used as fallback.
-
-**Without the next step, images display in their original format.** The `?format=` query params are ignored by EmDash's built-in media endpoint.
+The component renders a `<picture>` with AVIF and WebP sources. The browser picks the best format. The original image is the fallback.
 
 ### 3. (Optional) Enable optimized delivery
 
@@ -61,9 +57,9 @@ Create `src/middleware.ts`:
 export { onRequest } from "emdash-plugin-modern-images/astro/middleware";
 ```
 
-Done. The middleware intercepts requests to `/_emdash/api/media/file/...?format=...` and serves cached WebP/AVIF. On cache miss, it converts on-the-fly.
+This intercepts `/_emdash/api/media/file/...?format=...` requests and serves cached WebP/AVIF. Converts on-the-fly on cache miss.
 
-If you already have middleware, compose them:
+If you already have middleware, compose:
 
 ```ts
 import { sequence } from "astro:middleware";
