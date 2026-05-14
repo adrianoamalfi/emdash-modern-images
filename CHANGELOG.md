@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/adrianoamalfi/emdash-plugin-modern-images/compare/v1.1.0...v1.2.0) (2026-05-14)
+
+
+### Features
+
+* CLI setup script via npx ([da7c7ec](https://github.com/adrianoamalfi/emdash-plugin-modern-images/commit/da7c7ec7689faeddf87fb602f8c7187f5761a462))
+
 # [1.1.0](https://github.com/adrianoamalfi/emdash-plugin-modern-images/compare/v1.0.0...v1.1.0) (2026-05-14)
 
 
