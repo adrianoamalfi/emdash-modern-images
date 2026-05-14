@@ -1,7 +1,7 @@
 {
   "name": "emdash-plugin-modern-images",
-  "version": "0.1.0",
-  "description": "Automatic image optimization for EmDash CMS — converts uploaded images to WebP/AVIF with responsive breakpoints and admin-controlled quality.",
+  "version": "1.0.0",
+  "description": "Converts images to modern formats (WebP, AVIF) with responsive srcset, disk caching, and LCP preload support",
   "type": "module",
   "license": "MIT",
   "author": "Adriano Amalfi <adrianoamalfi@gmail.com> (https://adrianoamalfi.com)",
@@ -15,13 +15,14 @@
     "images",
     "webp",
     "avif",
-    "optimization",
+    "sharp",
     "responsive",
     "cms"
   ],
   "exports": {
     ".": "./src/index.ts",
-    "./sandbox": "./src/sandbox-entry.ts"
+    "./sandbox": "./src/sandbox-entry.ts",
+    "./astro/CmsImage": "./src/astro/CmsImage.astro"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

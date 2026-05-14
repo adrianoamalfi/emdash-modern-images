@@ -17,10 +17,8 @@ describe("Plugin descriptor", () => {
     expect(source).toContain('format: "standard"');
   });
 
-  it("declares media and network capabilities", () => {
+  it("declares media:read capability", () => {
     expect(source).toContain("media:read");
-    expect(source).toContain("media:write");
-    expect(source).toContain("network:request:unrestricted");
   });
 
   it("has admin settings page", () => {
@@ -28,7 +26,7 @@ describe("Plugin descriptor", () => {
     expect(source).toContain("Modern Images");
   });
 
-  it("declares storage cache collection", () => {
-    expect(source).toContain("cache");
+  it("declares conversions storage collection", () => {
+    expect(source).toContain("conversions");
   });
 });

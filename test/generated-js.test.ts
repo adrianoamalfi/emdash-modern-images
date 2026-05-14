@@ -13,30 +13,23 @@ describe("Plugin definition", () => {
     expect(sandbox).toContain('"plugin:install"');
   });
 
-  it("has admin route", () => {
+  it("has admin route with form_submit", () => {
     expect(sandbox).toContain("form_submit");
-    expect(sandbox).toContain("format_priority");
-    expect(sandbox).toContain("breakpoints");
-    expect(sandbox).toContain("quality");
+    expect(sandbox).toContain("default_format");
+    expect(sandbox).toContain("default_quality");
   });
 
-  it("has stats route", () => {
-    expect(sandbox).toContain("stats");
-    expect(sandbox).toContain("totalVariants");
+  it("reads settings from KV", () => {
+    expect(sandbox).toContain("getSettings");
+    expect(sandbox).toContain('"settings:all"');
   });
 
-  it("imports sharp for image processing", () => {
-    expect(sandbox).toContain("sharp");
-    expect(sandbox).toContain("resize");
-    expect(sandbox).toContain("toFormat");
+  it("converts images with sharp", () => {
+    expect(sandbox).toContain("convertImage");
+    expect(sandbox).toContain("saveToCache");
   });
 
-  it("fetches images via ctx.http", () => {
-    expect(sandbox).toContain("ctx.http!.fetch");
-    expect(sandbox).toContain("arrayBuffer");
-  });
-
-  it("uploads variants via ctx.media.upload", () => {
-    expect(sandbox).toContain("ctx.media!.upload!");
+  it("validates format against SUPPORTED_FORMATS", () => {
+    expect(sandbox).toContain("SUPPORTED_FORMATS");
   });
 });
