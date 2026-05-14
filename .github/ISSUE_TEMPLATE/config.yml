@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: EmDash Documentation
+    url: https://docs.emdashcms.com
+    about: Official EmDash CMS documentation
+  - name: EmDash Community
+    url: https://github.com/anomalyco/emdash/discussions
+    about: Ask questions and discuss EmDash plugins
