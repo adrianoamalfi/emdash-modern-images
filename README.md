@@ -72,7 +72,7 @@ export const onRequest = sequence(yourMiddleware, modernImages);
 
 | Prop | Type | Default | Description |
 |---|---|---|---|
-| `image` | `{ src, alt }` | required | EmDash image field object |
+| `image` | `{ id?, src?, alt?, meta? }` | required | EmDash image field. Uses `meta.storageKey` or `id` for the URL, falls back to extracting from `src`. |
 | `widths` | `number[]` | `[480, 640, 960, 1200]` | Responsive widths for srcset |
 | `sizes` | `string` | `"100vw"` | HTML `sizes` attribute |
 | `loading` | `"lazy" \| "eager"` | `"lazy"` | Native lazy loading |
