@@ -1,230 +1,128 @@
 import { definePlugin } from "emdash";
 import type { PluginContext } from "emdash";
-import sharp from "sharp";
-
-const SETTINGS_KEY = "settings:all";
+import { convertImage, SUPPORTED_FORMATS } from "./lib/convert";
+import { saveToCache } from "./lib/cache";
 
 interface Settings {
-  formatPriority: string[];
-  quality: number;
-  breakpoints: number[];
+  defaultQuality: number;
+  defaultFormat: string;
 }
 
-const DEFAULTS: Settings = {
-  formatPriority: ["webp", "avif"],
-  quality: 80,
-  breakpoints: [480, 768, 1024, 1600],
+const DEFAULT_SETTINGS: Settings = {
+  defaultQuality: 78,
+  defaultFormat: "webp",
 };
 
-interface Variant {
+async function getSettings(ctx: PluginContext): Promise<Settings> {
+  const raw = await ctx.kv.get<Record<string, unknown>>("settings:all");
+  return {
+    defaultQuality: typeof raw?.defaultQuality === "number" ? raw.defaultQuality : DEFAULT_SETTINGS.defaultQuality,
+    defaultFormat: typeof raw?.defaultFormat === "string" ? raw.defaultFormat : DEFAULT_SETTINGS.defaultFormat,
+  };
+}
+
+interface ConversionRecord {
+  storageKey: string;
   format: string;
   width: number;
-  mediaId: string;
-  url: string;
   size: number;
-}
-
-interface CacheEntry {
-  originalId: string;
-  originalUrl: string;
-  originalMime: string;
-  variants: Variant[];
-  createdAt: string;
-}
-
-async function getSettings(ctx: PluginContext): Promise<Settings> {
-  const stored = await ctx.kv.get<Partial<Settings>>(SETTINGS_KEY);
-  return { ...DEFAULTS, ...(stored || {}) };
-}
-
-const IMAGE_MIME = ["image/jpeg", "image/png", "image/webp", "image/avif", "image/tiff"];
-
-function isRasterImage(mime: string): boolean {
-  return IMAGE_MIME.includes(mime) || mime.startsWith("image/");
-}
-
-async function fetchImageBuffer(url: string, ctx: PluginContext): Promise<Buffer> {
-  const resp = await ctx.http!.fetch(url);
-  if (!resp.ok) throw new Error(`Failed to fetch image: ${resp.status} ${resp.statusText}`);
-  const ab = await resp.arrayBuffer();
-  return Buffer.from(ab);
-}
-
-function toArrayBuffer(buf: Buffer): ArrayBuffer {
-  return new Uint8Array(buf).buffer as ArrayBuffer;
-}
-
-async function uploadVariant(
-  buffer: Buffer,
-  filename: string,
-  mime: string,
-  ctx: PluginContext,
-): Promise<{ url: string; mediaId: string }> {
-  const result = await ctx.media!.upload!(filename, mime, toArrayBuffer(buffer));
-  return { url: result.url, mediaId: result.mediaId };
-}
-
-function formatMime(fmt: string): string {
-  return fmt === "avif" ? "image/avif" : `image/${fmt}`;
+  mtimeMs: number;
 }
 
 export default definePlugin({
   hooks: {
-    "plugin:install": async (_event: unknown, ctx: PluginContext) => {
-      await ctx.kv.set(SETTINGS_KEY, { ...DEFAULTS });
-      ctx.log.info("Modern Images plugin installed with default settings");
-    },
+    "media:afterUpload": {
+      handler: async (event: any, ctx: PluginContext) => {
+        const { media } = event;
+        if (!media?.mimeType?.startsWith("image/")) return;
 
-    "media:afterUpload": async (event: any, ctx: PluginContext) => {
-      const { media } = event;
-      if (!media?.mimeType || !isRasterImage(media.mimeType)) return;
-      if (!media?.url) {
-        ctx.log.warn(`No URL for media ${media.id}, skipping`);
-        return;
-      }
+        const settings = await getSettings(ctx);
+        const storageKey = media.id;
+        ctx.log.info(`ModernImages: converting ${media.filename}`);
 
-      ctx.log.info(`Processing image: ${media.id} (${media.mimeType})`);
-      const settings = await getSettings(ctx);
-
-      try {
-        const originalBuffer = await fetchImageBuffer(media.url, ctx);
-        const variants: Variant[] = [];
-
-        for (const format of settings.formatPriority) {
-          for (const width of settings.breakpoints) {
+        const widths = [640, 960, 1200];
+        const formats = settings.defaultFormat === "avif" ? ["avif", "webp"] as const : ["webp", "avif"] as const;
+        for (const format of formats) {
+          for (const width of widths) {
             try {
-              const output = await sharp(originalBuffer)
-                .resize({ width, withoutEnlargement: true, fit: "inside" })
-                .toFormat(format as any, { quality: settings.quality })
-                .toBuffer();
-
-              const filename = `${media.id}-${width}w.${format}`;
-              const mime = formatMime(format);
-              const { url, mediaId } = await uploadVariant(output, filename, mime, ctx);
-
-              variants.push({ format, width, mediaId, url, size: output.length });
-              ctx.log.info(`  Generated ${filename} (${format} ${width}w — ${(output.length / 1024).toFixed(0)}KB)`);
+              const result = await convertImage({ storageKey, format, width, quality: settings.defaultQuality });
+              await saveToCache(result);
+              await ctx.storage.conversions.put(`${storageKey}:${format}:${width}`, {
+                storageKey,
+                format,
+                width,
+                size: result.size,
+                mtimeMs: result.mtimeMs,
+              } satisfies ConversionRecord);
             } catch (err) {
-              ctx.log.warn(`  Failed to generate ${format} ${width}w: ${(err as Error).message}`);
+              ctx.log.warn(`  Failed ${format} ${width}w for ${media.filename}: ${(err as Error).message}`);
             }
           }
         }
+      },
+    },
 
-        const entry: CacheEntry = {
-          originalId: media.id,
-          originalUrl: media.url,
-          originalMime: media.mimeType,
-          variants,
-          createdAt: new Date().toISOString(),
-        };
-        await ctx.kv.set(`cache:image:${media.id}`, entry);
-        ctx.log.info(`Finished processing ${media.id}: ${variants.length} variants`);
-      } catch (err) {
-        ctx.log.error(`Failed to process image ${media.id}: ${(err as Error).message}`);
-      }
+    "plugin:install": {
+      handler: async (_event: unknown, ctx: PluginContext) => {
+        await ctx.kv.set("settings:all", DEFAULT_SETTINGS);
+        ctx.log.info("ModernImages plugin installed");
+      },
     },
   },
 
   routes: {
     admin: {
-      handler: async (routeCtx: any, ctx: PluginContext) => {
+      handler: async (routeCtx: { input: Record<string, unknown>; request: Request }, ctx: PluginContext) => {
         const interaction = routeCtx.input as Record<string, any>;
+        const type = interaction?.type ?? "";
 
-        if (interaction.type === "page_load") {
-          return { blocks: buildForm(await getSettings(ctx)) };
-        }
-
-        if (interaction.type === "form_submit" && interaction.action_id === "save") {
+        if (type === "form_submit" && interaction.action_id === "save_settings") {
           try {
-            const values = interaction.values ?? {};
-            const s: Partial<Settings> = {};
-            if (values.format_priority) {
-              s.formatPriority = values.format_priority === "avif_first"
-                ? ["avif", "webp"]
-                : ["webp", "avif"];
+            const v = interaction.values ?? {};
+            const rawFormat = v.default_format || "webp";
+            if (!SUPPORTED_FORMATS.includes(rawFormat)) {
+              throw new Error(`Unsupported format "${rawFormat}". Use one of: ${SUPPORTED_FORMATS.join(", ")}`);
             }
-            if (values.quality !== undefined) s.quality = Math.max(1, Math.min(100, Number(values.quality)));
-            if (values.breakpoints) {
-              s.breakpoints = String(values.breakpoints)
-                .split(",")
-                .map((v: string) => parseInt(v.trim(), 10))
-                .filter((n: number) => !isNaN(n) && n > 0);
-            }
-            await ctx.kv.set(SETTINGS_KEY, { ...DEFAULTS, ...s });
-            return {
-              blocks: [
-                { type: "banner", title: "Settings saved.", variant: "default" },
-                ...buildForm(await getSettings(ctx)),
-              ],
+            const updated: Settings = {
+              defaultQuality: Math.max(30, Math.min(95, parseInt(v.default_quality) || 78)),
+              defaultFormat: rawFormat,
             };
-          } catch (e) {
-            return {
-              blocks: [
-                { type: "banner", title: `Failed to save: ${(e as Error).message}`, variant: "error" },
-                ...buildForm(await getSettings(ctx)),
-              ],
-            };
+            await ctx.kv.set("settings:all", updated);
+            return { blocks: dashboardBlocks(updated), toast: { message: "Settings saved", type: "success" } };
+          } catch {
+            return { blocks: dashboardBlocks(await getSettings(ctx)), toast: { message: "Failed to save settings", type: "error" } };
           }
         }
 
-        return { blocks: [{ type: "header", text: "Modern Images Settings" }] };
-      },
-    },
-
-    stats: {
-      handler: async (_routeCtx: any, ctx: PluginContext) => {
-        const all = await ctx.kv.list("cache:image:");
-        let totalVariants = 0;
-        let totalSize = 0;
-        for (const entry of all) {
-          const cache = entry.value as CacheEntry;
-          if (cache?.variants) {
-            totalVariants += cache.variants.length;
-            totalSize += cache.variants.reduce((sum: number, v: Variant) => sum + (v.size || 0), 0);
-          }
-        }
-        return {
-          imagesProcessed: all.length,
-          totalVariants,
-          totalCacheKb: Math.round(totalSize / 1024),
-        };
+        return { blocks: dashboardBlocks(await getSettings(ctx)) };
       },
     },
   },
 });
 
-function buildForm(s: Settings) {
+function dashboardBlocks(settings: Settings) {
   return [
-    { type: "header", text: "Modern Images Settings" },
-    { type: "context", text: "Configure how uploaded images are optimized. Changes apply to new uploads only." },
+    { type: "header", text: "Modern Images" },
+    { type: "context", text: "Converts uploaded images to WebP/AVIF." },
+    { type: "divider" },
     {
       type: "form",
       block_id: "settings",
       fields: [
         {
-          type: "select",
-          action_id: "format_priority",
-          label: "Output Format Priority",
-          initial_value: s.formatPriority[0] === "avif" ? "avif_first" : "webp_first",
+          type: "select", action_id: "default_format", label: "Default format",
+          initial_value: settings.defaultFormat,
           options: [
-            { value: "webp_first", label: "WebP preferred (fallback AVIF)" },
-            { value: "avif_first", label: "AVIF preferred (fallback WebP)" },
+            { value: "webp", label: "WebP" },
+            { value: "avif", label: "AVIF" },
           ],
         },
         {
-          type: "text_input",
-          action_id: "quality",
-          label: "Quality (1-100)",
-          initial_value: String(s.quality),
-        },
-        {
-          type: "text_input",
-          action_id: "breakpoints",
-          label: "Breakpoints (comma-separated widths in px)",
-          initial_value: s.breakpoints.join(", "),
+          type: "number_input", action_id: "default_quality", label: "Quality (30-95)",
+          initial_value: settings.defaultQuality, min: 30, max: 95,
         },
       ],
-      submit: { label: "Save", action_id: "save" },
+      submit: { label: "Save", action_id: "save_settings" },
     },
   ];
 }

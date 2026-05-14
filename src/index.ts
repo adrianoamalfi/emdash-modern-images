@@ -3,22 +3,21 @@ import type { PluginDescriptor } from "emdash";
 export function modernImagesPlugin(): PluginDescriptor {
   return {
     id: "modern-images",
-    version: "0.1.0",
+    version: "1.0.0",
     format: "standard",
     entrypoint: "emdash-plugin-modern-images/sandbox",
-    options: {},
-    capabilities: [
-      "media:read",
-      "media:write",
-      "network:request:unrestricted",
-    ],
-    adminPages: [
-      { path: "/settings", label: "Modern Images", icon: "image" },
-    ],
+    capabilities: ["media:read"],
     storage: {
-      cache: {
-        indexes: ["originalId", "format", "width"],
+      conversions: {
+        indexes: ["storageKey", "format", "width"],
       },
     },
+    adminPages: [
+      {
+        path: "/settings",
+        label: "Modern Images",
+        icon: "image",
+      },
+    ],
   };
 }
